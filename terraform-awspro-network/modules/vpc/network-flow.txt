@@ -1,0 +1,108 @@
+
+AWSPro Network Module - Architecture Flow
+==========================================
+
+1. VPC
+   |
+   |-- VPC CIDR: 10.20.0.0/16
+   |
+   |-- Internet Gateway (IGW)
+   |
+   |-- Public Subnets (2 AZs)
+   |     |
+   |     |-- Public Subnet 1: 10.20.1.0/24
+   |     |-- Public Subnet 2: 10.20.2.0/24
+   |     |
+   |     |-- Internet-facing NLB / ALB
+   |     |-- NAT Gateway(s)
+   |
+   |-- Private Application Subnets (2 AZs)
+   |     |
+   |     |-- Private Subnet 1: 10.20.11.0/24
+   |     |-- Private Subnet 2: 10.20.12.0/24
+   |     |
+   |     |-- ECS EC2 Container Instances
+   |     |-- ECS Tasks
+   |     |-- Application Workloads
+   |
+   |-- Optional Database Subnets (2 AZs)
+         |
+         |-- Database Subnet 1
+         |-- Database Subnet 2
+         |-- RDS / Database Workloads
+
+
+TRAFFIC FLOW
+============
+
+Internet
+   |
+   v
+Internet-facing NLB
+   |
+   v
+Internet-facing ALB
+   |
+   v
+ECS Tasks running on EC2 instances
+   |
+   v
+Application / Backend Services
+
+
+OUTBOUND INTERNET FLOW
+======================
+
+ECS EC2 Instances in Private Subnets
+   |
+   v
+Private Route Table
+   |
+   v
+NAT Gateway in Public Subnet
+   |
+   v
+Internet Gateway
+   |
+   v
+Internet
+
+
+ROUTING
+=======
+
+Public Subnets:
+  0.0.0.0/0 -> Internet Gateway
+
+Private Application Subnets:
+  0.0.0.0/0 -> NAT Gateway (when enabled)
+
+Database Subnets:
+  No default internet route
+  Local VPC communication remains available
+
+
+AVAILABILITY AND RESILIENCE
+===========================
+
+- Deploy public and private subnets across two Availability Zones.
+- For production high availability, use one NAT Gateway per AZ.
+- A single NAT Gateway reduces cost but introduces an AZ dependency.
+- Keep ECS EC2 instances in private subnets.
+- Configure security groups separately for NLB, ALB, ECS, and databases.
+- Configure NLB and ALB listeners, target groups, and health checks
+  in their respective Terraform modules.
+
+
+IMPORTANT
+=========
+
+This module creates the VPC network foundation only.
+
+It does not create:
+- NLB or ALB
+- Security groups
+- ECS cluster, service, or tasks
+- Auto Scaling Group or Capacity Provider
+- RDS resources
+- VPC endpoints

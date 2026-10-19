@@ -1,0 +1,237 @@
+from pathlib import Path
+
+content = """AWS ECS Terraform Project
+Bootstrap Folder — File Purpose and Execution Flow
+===================================================
+
+1. PURPOSE OF THE BOOTSTRAP FOLDER
+---------------------------------
+The bootstrap folder creates the remote-state infrastructure required by the
+rest of the Terraform project. It creates an S3 bucket to store Terraform state
+and a customer-managed AWS KMS key to encrypt the state.
+
+The bootstrap infrastructure includes:
+- S3 bucket for Terraform state
+- S3 versioning for state recovery
+- KMS key and alias for encryption
+- S3 public access block
+- S3 bucket ownership controls
+- Bucket policy denying insecure HTTP transport
+- Lifecycle rule to abort incomplete multipart uploads
+
+Terraform's native S3 lockfile mechanism is enabled later in the backend
+configuration using use_lockfile = true. No separate DynamoDB lock table is
+created by this design.
+
+2. FOLDER STRUCTURE
+-------------------
+bootstrap/
+|-- versions.tf
+|-- providers.tf
+|-- variables.tf
+|-- main.tf
+|-- outputs.tf
+|-- terraform.tfvars
+|-- .gitignore
+|-- backend.tf.example
+`-- backend.tf             (created only when migrating to the S3 backend)
+
+3. PURPOSE OF EACH FILE
+-----------------------
+
+versions.tf
+Purpose:
+- Declares the minimum Terraform version.
+- Declares the AWS provider and its supported version range.
+- Terraform 1.10 or later is required for native S3 lockfile support.
+
+providers.tf
+Purpose:
+- Configures the AWS provider and deployment region.
+- Applies default tags to resources.
+- Uses the credentials available to the AWS SDK, such as an approved AWS CLI
+  profile, SSO session, or assumed role.
+- Do not hardcode access keys or secret keys in this file.
+
+variables.tf
+Purpose:
+- Declares configurable inputs such as AWS region, project name, KMS key
+  deletion waiting period, and additional resource tags.
+- Includes validation rules for selected inputs.
+- Keeps reusable settings out of the resource definitions.
+
+main.tf
+Purpose:
+- Reads the current AWS account ID and AWS partition.
+- Builds a globally unique S3 bucket name using the project, account ID, and
+  region.
+- Creates the KMS key and its alias.
+- Creates the S3 bucket and enables versioning.
+- Configures default server-side encryption with the KMS key.
+- Blocks public access and enforces bucket-owner ownership controls.
+- Adds a bucket policy denying requests that use insecure HTTP transport.
+- Adds a lifecycle rule to abort incomplete multipart uploads.
+- Uses prevent_destroy on the state bucket to reduce accidental deletion risk.
+
+outputs.tf
+Purpose:
+- Displays the created S3 bucket name and ARN.
+- Displays the KMS key ARN and bucket region.
+- These values are used when configuring the backend for bootstrap or other
+  Terraform environments.
+
+terraform.tfvars
+Purpose:
+- Supplies values for the declared input variables.
+- The example configuration sets the region to ap-south-1, the project name,
+  KMS deletion waiting period, and common tags.
+- Adjust tags and naming to your organization's standards.
+- If the file contains environment-specific or sensitive information, do not
+  commit it to Git. Never put AWS credentials or secret values here.
+
+.gitignore
+Purpose:
+- Prevents Terraform state, working directories, plan files, local CLI files,
+  override files, and credential-related files from being committed.
+- Review the rules against your organization's repository standards.
+- Commit a safe terraform.tfvars.example instead of a private terraform.tfvars
+  when sharing configuration with the team.
+
+backend.tf.example
+Purpose:
+- Provides a template for configuring the S3 backend after the bucket exists.
+- Contains the bucket name, state key, region, KMS key ARN, encryption setting,
+  and use_lockfile = true.
+- Replace placeholders with real values before using it.
+- Terraform backend blocks do not support ordinary variable interpolation.
+
+backend.tf
+Purpose:
+- This file is optional during the initial bootstrap run.
+- After the S3 bucket has been created, copy backend.tf.example to backend.tf
+  and replace the placeholders.
+- Run terraform init -migrate-state to migrate the bootstrap state from local
+  storage to S3.
+- Keep a secure backup of the original local state until migration is verified.
+- Do not commit local or remote state files to Git.
+
+4. EXECUTION FLOW
+-----------------
+
+Step 1 — Prepare credentials
+- Authenticate using the approved AWS CLI profile, AWS SSO, or assumed role.
+- Run: aws sts get-caller-identity
+- Confirm the account is the intended target account.
+
+Step 2 — Configure inputs
+- Review terraform.tfvars.
+- Confirm the region, project name, tags, and KMS deletion window.
+
+Step 3 — Initialize locally
+- Do not create backend.tf yet.
+- Run: terraform init
+- This initializes Terraform using local state.
+
+Step 4 — Format and validate
+- Run: terraform fmt -recursive
+- Run: terraform validate
+
+Step 5 — Review the proposed resources
+- Run: terraform plan -out=bootstrap.tfplan
+- Run: terraform show bootstrap.tfplan
+- Verify the account, region, bucket name, KMS key, and security settings.
+
+Step 6 — Create bootstrap resources
+- Run: terraform apply bootstrap.tfplan
+- Review outputs using: terraform output
+- Retrieve the bucket name using:
+  terraform output -raw terraform_state_bucket_name
+- Retrieve the KMS key ARN using:
+  terraform output -raw terraform_state_kms_key_arn
+
+Step 7 — Configure remote state for bootstrap (recommended)
+- Copy backend.tf.example to backend.tf.
+- Replace the bucket and KMS placeholders with the actual outputs.
+- Run: terraform init -migrate-state
+- Confirm migration when prompted.
+- Verify the migration and run terraform plan again.
+
+Step 8 — Configure ECS environment state
+- Use the same state bucket with a different key for each environment.
+- Example development key: environments/dev/terraform.tfstate
+- Example production key: environments/prod/terraform.tfstate
+- Keep bootstrap state separate, for example: bootstrap/terraform.tfstate.
+
+5. HIGH-LEVEL FLOW
+------------------
+
+AWS credentials
+      |
+      v
+versions.tf + providers.tf + variables.tf + terraform.tfvars
+      |
+      v
+terraform init (local state initially)
+      |
+      v
+terraform plan and review
+      |
+      v
+main.tf creates KMS + S3 security controls
+      |
+      v
+outputs.tf returns bucket name and KMS key ARN
+      |
+      v
+backend.tf configured with actual values
+      |
+      v
+terraform init -migrate-state
+      |
+      v
+Bootstrap state stored in S3 with native lockfile support
+      |
+      v
+ECS environment configurations use separate state keys
+
+6. IMPORTANT SECURITY AND OPERATIONS NOTES
+------------------------------------------
+- S3 bucket names must be globally unique. If creation fails because the name
+  is already taken, change the project name or naming scheme and re-plan.
+- The deployment identity requires permissions to create and configure S3 and
+  KMS resources. The identity used later for Terraform operations also needs
+  appropriate S3 state/lockfile and KMS permissions.
+- The KMS key policy and IAM policies must permit the intended Terraform
+  execution role to use the key.
+- S3 versioning helps recover previous state versions but is not a substitute
+  for access control or a tested recovery procedure.
+- Do not delete the state bucket or KMS key while Terraform states depend on
+  them. The bucket has prevent_destroy enabled as an additional safeguard.
+- The HTTPS-deny bucket policy does not itself grant access; IAM and KMS
+  permissions are still required.
+- Native S3 lockfile support requires Terraform 1.10 or later. The lockfile is
+  stored as an S3 object alongside the state key.
+- For multi-account production environments, decide which account owns the
+  state bucket and configure cross-account IAM and KMS permissions deliberately.
+- Do not commit state files, plan files, credentials, or secret values.
+
+7. COMMON COMMANDS
+------------------
+
+aws sts get-caller-identity
+terraform init
+terraform fmt -recursive
+terraform validate
+terraform plan -out=bootstrap.tfplan
+terraform show bootstrap.tfplan
+terraform apply bootstrap.tfplan
+terraform output
+terraform init -migrate-state
+terraform plan
+
+END OF DOCUMENT
+"""
+
+path = Path("/mnt/data/bootstrap_file_flow_and_purpose.txt")
+path.write_text(content, encoding="utf-8")
+print(f"Created: {path}")
