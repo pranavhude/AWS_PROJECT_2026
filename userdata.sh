@@ -58,3 +58,10 @@ python3 --version
 docker --version
 
 echo "AWSPro Terraform execution server setup completed."
+
+# Install AWS SSM Agent
+dnf install -y amazon-ssm-agent
+systemctl enable --now amazon-ssm-agent
+
+# Verify SSM Agent
+systemctl is-active amazon-ssm-agent

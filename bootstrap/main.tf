@@ -46,14 +46,14 @@ resource "aws_kms_alias" "terraform_state" {
 
 resource "aws_s3_bucket" "terraform_state" {
   bucket        = local.state_bucket_name
-  force_destroy = false
+  force_destroy = true
 
   tags = merge(local.common_tags, {
     Name = local.state_bucket_name
   })
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
