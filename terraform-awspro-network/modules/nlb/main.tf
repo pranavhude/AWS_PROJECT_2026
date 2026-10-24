@@ -40,13 +40,14 @@ resource "aws_lb_target_group" "awspro_alb_tg" {
   name        = "${local.awspro_name_prefix}-alb-tg"
   vpc_id      = var.vpc_id
   target_type = "alb"
-  protocol    = "HTTP"
-  port        = 80
+  protocol    = "TCP"
+  port        = 443
 
   health_check {
     enabled  = true
-    protocol = "TCP"
+    protocol = "HTTPS"
     port     = "traffic-port"
+    path     = "/"
   }
 
   tags = merge(local.awspro_common_tags, {
