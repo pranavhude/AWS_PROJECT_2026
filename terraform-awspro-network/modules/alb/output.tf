@@ -21,5 +21,5 @@ output "awspro_alb_target_group_arn" {
 
 output "awspro_alb_listener_arn" {
   description = "ARN of the ALB HTTPS listener."
-  value       = aws_lb_listener.awspro_alb_https.arn
+  value       = aws_lb_listener.awspro_alb_http.arn
 }
