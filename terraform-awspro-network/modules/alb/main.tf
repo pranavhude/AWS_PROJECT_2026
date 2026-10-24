@@ -66,12 +66,12 @@ resource "aws_lb_target_group" "awspro_ecs_tg" {
 # HTTPS LISTENER
 # --------------------------------------------------
 
-resource "aws_lb_listener" "awspro_alb_https" {
+resource "aws_lb_listener" "awspro_alb_http" {
   load_balancer_arn = aws_lb.awspro_alb.arn
-  port              = 443
-  protocol          = "HTTPS"
-  certificate_arn   = var.acm_certificate_arn
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  port              = 80
+  protocol          = "HTTP"
+  #certificate_arn   = var.acm_certificate_arn
+  #ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
 
   default_action {
     type             = "forward"
@@ -79,6 +79,6 @@ resource "aws_lb_listener" "awspro_alb_https" {
   }
 
   tags = merge(local.awspro_common_tags, {
-    Name = "${local.awspro_name_prefix}-https-listener"
+    Name = "${local.awspro_name_prefix}-http-listener"
   })
 }
