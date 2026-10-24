@@ -1,37 +1,23 @@
+```bash
 #!/bin/bash
 set -euxo pipefail
 
 exec > >(tee -a /var/log/awspro-terraform-setup.log) 2>&1
 
-# Update operating system
+# Update OS
 dnf update -y
 
-# Install required utilities
+# Install Git and required utilities
 dnf install -y \
   git \
   jq \
+  curl \
   unzip \
   tar \
   gzip \
-  curl \
-  wget \
-  bash-completion \
-  python3 \
-  python3-pip \
-  ca-certificates \
-  openssl
+  ca-certificates
 
-# Install AWS CLI v2
-cd /tmp
-curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
-  -o awscliv2.zip
-
-unzip -q -o awscliv2.zip
-./aws/install --update
-
-rm -rf /tmp/aws /tmp/awscliv2.zip
-
-# Install HashiCorp repository
+# Install Terraform repository
 dnf install -y dnf-plugins-core
 
 dnf config-manager \
@@ -41,27 +27,18 @@ dnf config-manager \
 # Install Terraform
 dnf install -y terraform
 
-# Install Docker CLI and engine (optional for container testing)
-dnf install -y docker
-systemctl enable --now docker
+# Install and start SSM Agent
+dnf install -y amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+systemctl restart amazon-ssm-agent
 
-# Create working directory
+# Create Terraform working directory
 mkdir -p /opt/awspro/terraform
 chmod 0755 /opt/awspro/terraform
 
 # Verify installations
-terraform -version
-aws --version
 git --version
-jq --version
-python3 --version
-docker --version
-
-echo "AWSPro Terraform execution server setup completed."
-
-# Install AWS SSM Agent
-dnf install -y amazon-ssm-agent
-systemctl enable --now amazon-ssm-agent
-
-# Verify SSM Agent
+terraform -version
 systemctl is-active amazon-ssm-agent
+
+echo "Git, Terraform, and SSM Agent setup completed."
