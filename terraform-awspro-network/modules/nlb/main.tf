@@ -40,8 +40,8 @@ resource "aws_lb_target_group" "awspro_alb_tg" {
   name        = "${local.awspro_name_prefix}-alb-tg"
   vpc_id      = var.vpc_id
   target_type = "alb"
-  protocol    = "TCP"
-  port        = 443
+  protocol    = "HTTP"
+  port        = 80
 
   health_check {
     enabled  = true
