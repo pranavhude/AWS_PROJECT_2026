@@ -31,10 +31,10 @@ variable "alb_security_group_id" {
   type        = string
 }
 
-variable "acm_certificate_arn" {
-  description = "ARN of an issued ACM certificate in the same Region as the ALB."
-  type        = string
-}
+#variable "acm_certificate_arn" {
+#  description = "ARN of an issued ACM certificate in the same Region as the ALB."
+#  type        = string
+#}
 
 variable "health_check_path" {
   description = "HTTP path used by the ALB target group health check."
