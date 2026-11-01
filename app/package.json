@@ -1,0 +1,10 @@
+{
+  "name": "awspro-ecs-test-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple HTTP test application for Amazon ECS on EC2",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  }
+}
